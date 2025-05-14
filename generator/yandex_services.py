@@ -1,9 +1,6 @@
-# generator/yandex_service.py
-
 import os
 import time
 import logging
-from typing import Optional
 
 import requests
 from requests.exceptions import RequestException
@@ -11,14 +8,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GPT_ID      = os.getenv('YANDEX_GPT_ID')
-API_KEY     = os.getenv('YANDEX_API_KEY')
-MAX_TOKENS  = 200
+GPT_ID = os.getenv('YANDEX_GPT_ID')
+API_KEY = os.getenv('YANDEX_API_KEY')
+MAX_TOKENS = 200
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-
+"""
+Функция для генерации текста с использованием Yandex GPT.
+Получает тему, язык и длину текста в качестве параметров.
+Возвращает сгенерированный текст или пустую строку в случае ошибки.
+"""
 def generate_text(
     topic: str,
     language: str = 'ru',

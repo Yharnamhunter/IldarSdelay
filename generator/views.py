@@ -1,22 +1,27 @@
-import os, io, zipfile, csv, json
+import os, io, json
 from uuid import uuid4
 from docx import Document
 import time
 from django.shortcuts import render, redirect
 from .forms import RegisterForm, LoginForm
 from .yandex_services import generate_text
-from pathlib import Path
 from django.utils.timezone import now
-from .models import textGeneration, batchGeneration
+from .models import TextGeneration, BatchGeneration
 from django.contrib.auth import login, logout, authenticate
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, HttpResponse, Http404, StreamingHttpResponse, HttpResponseBadRequest
+from django.http import FileResponse, Http404, StreamingHttpResponse
 from django.conf import settings
 from django.urls import reverse
 from django.utils.text import slugify
 
 def register_view(request):
+    """
+    Обработка регистрации нового пользователя.
+    GET:  выводит форму регистрации.
+    POST: сохраняет нового пользователя, логинит его и
+    перенаправляет на страницу генерации текста.
+    """
     if request.user.is_authenticated:
         return redirect('generate')
 
@@ -47,6 +52,12 @@ def register_view(request):
     })
 
 def login_view(request):
+    """
+    Обработка авторизации пользователя.
+    GET:  выводит форму логина.
+    POST: аутентифицирует, логинит и перенаправляет
+    на страницу генерации.
+    """
     if request.user.is_authenticated:
         return redirect('generate')
 
@@ -73,7 +84,10 @@ def logout_view(request):
 @login_required
 def generate_view(request):
     """
-    Одиночная генерация текста с проверкой длины (10–300 слов).
+    Одиночная генерация текста.
+    GET:  выводит форму и историю одиночных запросов.
+    POST: генерирует текст по prompt, сохраняет в БД
+    и отображает результат.
     """
     if request.method == 'POST':
         prompt = request.POST.get('prompt', '').strip()
@@ -84,7 +98,7 @@ def generate_view(request):
             length = 120
         if length < 10 or length > 300:
             messages.error(request, "Длина текста должна быть от 10 до 300 слов.")
-            history = textGeneration.objects.filter(user=request.user).order_by('-created_at')
+            history = TextGeneration.objects.filter(user=request.user).order_by('-created_at')
             return render(request, 'generator/generate.html', {
                 'history': history,
                 'prompt':  prompt,
@@ -92,11 +106,10 @@ def generate_view(request):
                 'length':  length,
             })
 
-        # Генерация
         text = generate_text(prompt, lang, length)
         if not text:
             messages.error(request, "Не удалось сгенерировать текст. Попробуйте позже.")
-            history = textGeneration.objects.filter(user=request.user).order_by('-created_at')
+            history = TextGeneration.objects.filter(user=request.user).order_by('-created_at')
             return render(request, 'generator/generate.html', {
                 'history': history,
                 'prompt':  prompt,
@@ -104,15 +117,14 @@ def generate_view(request):
                 'length':  length,
             })
 
-        # Сохранение и рендер результата
-        textGeneration.objects.create(
+        TextGeneration.objects.create(
             user     = request.user,
             prompt   = prompt,
             result   = text,
             language = lang
         )
 
-        history = textGeneration.objects.filter(user=request.user).order_by('-created_at')
+        history = TextGeneration.objects.filter(user=request.user).order_by('-created_at')
         return render(request, 'generator/generate.html', {
             'result': text,
             'prompt': prompt,
@@ -121,8 +133,7 @@ def generate_view(request):
             'history': history,
         })
 
-    # GET
-    history = textGeneration.objects.filter(user=request.user).order_by('-created_at')
+    history = TextGeneration.objects.filter(user=request.user).order_by('-created_at')
     return render(request, 'generator/generate.html', {
         'history': history
     })
@@ -130,30 +141,33 @@ def generate_view(request):
 
 @login_required
 def batch_generate_view(request):
-    # Только GET-метод
+    """
+    Пакетная генерация текстов.
+    GET:  выводит форму и историю пакетных запросов.
+    POST: генерирует несколько текстов, упаковывает
+    их в файл (txt/docx/rtf), сохраняет на диск
+    и предлагает скачать.
+    """
     if request.method != 'GET':
         raise Http404()
 
-    # История для боковой панели
-    history = batchGeneration.objects.filter(
+    history = BatchGeneration.objects.filter(
         user=request.user
     ).order_by('-created_at')[:10]
 
-    # Если это просто заход на страницу — рендерим пустую форму
     if not request.GET:
         return render(request, 'generator/batch_generate.html', {
             'history': history,
-            'initial': {}  # пустые initial, чтобы шаблон не падал
+            'initial': {}
         })
 
-    # Иначе — это уже "сабмит" формы, собираем параметры
-    prompt   = request.GET.get('prompt', '').strip()
+    prompt = request.GET.get('prompt', '').strip()
     try:
         count = int(request.GET.get('count', 5))
     except ValueError:
         count = 5
 
-    lang    = request.GET.get('lang', 'ru')
+    lang = request.GET.get('lang', 'ru')
     try:
         length = int(request.GET.get('length', 120))
     except ValueError:
@@ -161,7 +175,6 @@ def batch_generate_view(request):
 
     file_fmt = request.GET.get('file_format', 'txt').lower()
 
-    # 2) Валидация — только prompt
     errors = []
     if not prompt:
         errors.append("Поле «Запрос» не может быть пустым.")
@@ -180,8 +193,7 @@ def batch_generate_view(request):
             }
         })
 
-    # 3) Сохраняем в историю
-    batchGeneration.objects.create(
+    BatchGeneration.objects.create(
         user=request.user,
         prompt=prompt,
         count=count,
@@ -189,7 +201,6 @@ def batch_generate_view(request):
         file_format=file_fmt,
     )
 
-    # 4) Генерируем тексты
     texts = []
     for i in range(count):
         txt = generate_text(prompt, language=lang)
@@ -201,7 +212,6 @@ def batch_generate_view(request):
         texts.append(txt)
         time.sleep(0.3)
 
-    # 5) Формируем и отдаем файл
     timestamp = now().strftime("%Y%m%d_%H%M%S")
     filename  = f"batch_{timestamp}.{file_fmt}"
 
@@ -256,10 +266,12 @@ def batch_generate_view(request):
     else:
         raise Http404("Неизвестный формат файла.")
 
-
 @login_required
 def batch_download_view(request, filename):
-
+    
+    """
+    Отдаёт файл пакетной генерации пользователю.
+    """
     file_path = os.path.join(settings.MEDIA_ROOT, 'batch', filename)
 
     if not os.path.exists(file_path):
@@ -268,11 +280,17 @@ def batch_download_view(request, filename):
     return FileResponse(
         open(file_path, 'rb'),
         as_attachment=True,
-        filename=filename
+        filename=filename,
     )
 
 @login_required
 def batch_stream(request):
+    """
+    SSE-эндпоинт для потоковой пакетной генерации.
+    Отправляет JSON-сообщения с прогрессом (0–100%)
+    и после завершения — событие complete с URL
+    для скачивания готового файла.
+    """
     prompt     = request.GET.get('prompt','').strip()
     lang       = request.GET.get('lang','ru')
     fmt        = request.GET.get('file_format','txt')
@@ -285,7 +303,7 @@ def batch_stream(request):
     except ValueError:
         max_tokens = 150
 
-    batchGeneration.objects.create(
+    BatchGeneration.objects.create(
         user=request.user,
         prompt=prompt,
         count=count,
@@ -351,17 +369,30 @@ def batch_stream(request):
 
 @login_required
 def clear_text_history(request):
+    """
+    Очищает историю одиночных запросов
+    и перенаправляет на страницу одиночной генерации.
+    """
     if request.method == "POST":
-        textGeneration.objects.filter(user=request.user).delete()
+        TextGeneration.objects.filter(user=request.user).delete()
         messages.success(request, "История одиночных запросов очищена.")
     return redirect('generate') 
 
 @login_required
 def clear_batch_history(request):
+    """
+    Очистка истории пакетных запросов.
+    Очищает историю пакетных запросов
+    и перенаправляет на страницу пакетной генерации.
+    """
     if request.method == "POST":
-        batchGeneration.objects.filter(user=request.user).delete()
+        BatchGeneration.objects.filter(user=request.user).delete()
         messages.success(request, "История пакетных запросов очищена.")
     return redirect('batch_generate')
 
 def page_not_found_view(request, exception):
+    """
+    Обработчик ошибки 404.
+    Возвращает кастомный шаблон 404.html с кодом 404.
+    """
     return render(request, '404.html', status=404)

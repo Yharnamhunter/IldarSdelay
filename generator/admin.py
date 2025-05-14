@@ -1,4 +1,9 @@
 from django.contrib import admin
-from .models import textGeneration
+from . import models
 
-admin.site.register(textGeneration)
+"""
+Регистрируем модели приложения в административной панели Django.
+"""
+
+admin.site.register(models.TextGeneration)
+admin.site.register(models.BatchGeneration)
