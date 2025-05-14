@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Одиночная генерация{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="generate-form">
+    <h1>Генерация текста</h1>
+
+    <form method="post" class="generate-form__form">
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label for="prompt">Запрос:</label>
+        <textarea id="prompt"
+                  name="prompt"
+                  rows="4"
+                  required
+                  placeholder="Введите тему…"
+        >{{ request.POST.prompt }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="lang">Язык:</label>
+        <select id="lang" name="lang">
+          <option value="ru" {% if request.POST.lang == "ru" %}selected{% endif %}>
+            Русский
+          </option>
+          <option value="en" {% if request.POST.lang == "en" %}selected{% endif %}>
+            English
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="length">Длина текста (слов, 10–300):</label>
+        <input id="length" type="number" name="length"
+               min="10" max="300"
+               value="{{ request.POST.length|default:120 }}">
+      </div>
+
+      <button type="submit" class="btn">Сгенерировать</button>
+    </form>
+
+    {% if result %}
+      <div class="result">
+        <h2>Результат</h2>
+        <div class="generated-text">{{ result }}</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="history">
+    <h2>История запросов</h2>
+    {% if history %}
+      <form method="post" action="{% url 'clear_text_history' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary btn-block mb-3">
+          Очистить историю
+        </button>
+      </form>
+      <ul class="list-history">
+        {% for item in history %}
+          <li>
+            <time datetime="{{ item.created_at|date:'c' }}">
+              {{ item.created_at|date:"Y-m-d H:i" }}
+            </time>
+            — {{ item.prompt|truncatechars:50 }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>Запросов ещё не было.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
