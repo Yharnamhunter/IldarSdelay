@@ -4,32 +4,34 @@
 {% block title %}Вход{% endblock %}
 
 {% block content %}
-<div class="page-container">
-  <div class="auth-form">
-    <h1 class="auth-form__title">Войти в систему</h1>
+<div class="auth-page">
+  <div class="page-container">
+    <div class="auth-form">
+      <h1 class="auth-form__title">Войти в систему</h1>
 
-    <form method="post" novalidate class="auth-form__form">
-      {% csrf_token %}
-      <div class="form-group">
-        {{ form.username.label_tag }}
-        {{ form.username }}
-        {% if form.username.errors %}
-          <div class="error">{{ form.username.errors.0 }}</div>
-        {% endif %}
-      </div>
-      <div class="form-group">
-        {{ form.password.label_tag }}
-        {{ form.password }}
-        {% if form.password.errors %}
-          <div class="error">{{ form.password.errors.0 }}</div>
-        {% endif %}
-      </div>
-      <button type="submit" class="btn">Войти</button>
-    </form>
+      <form method="post" novalidate class="auth-form__form">
+        {% csrf_token %}
+        <div class="form-group">
+          {{ form.username.label_tag }}
+          {{ form.username }}
+          {% if form.username.errors %}
+            <div class="error">{{ form.username.errors.0 }}</div>
+          {% endif %}
+        </div>
+        <div class="form-group">
+          {{ form.password.label_tag }}
+          {{ form.password }}
+          {% if form.password.errors %}
+            <div class="error">{{ form.password.errors.0 }}</div>
+          {% endif %}
+        </div>
+        <button type="submit" class="btn">Войти</button>
+      </form>
 
-    <p class="auth-form__footer">
-      Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a>
-    </p>
+      <p class="auth-form__footer">
+        Нет аккаунта? <a href="{% url 'register' %}">Зарегистрироваться</a>
+      </p>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -73,21 +73,22 @@
 
   <div class="history">
     <h2>История пакетных запросов</h2>
-    <form method="post" action="{% url 'clear_batch_history' %}">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-danger btn-sm mb-2">Очистить историю</button>
-    </form>
     {% if history %}
-      <ul>
-        {% for item in history %}
-          <li>
-            <time datetime="{{ item.created_at|date:'c' }}">
-              {{ item.created_at|date:"Y-m-d H:i" }}
-            </time>
-             — {{ item.prompt|truncatechars:50 }} (×{{ item.count }}, {{ item.get_language_display }}, {{ item.get_file_format_display }})
-          </li>
-        {% endfor %}
-      </ul>
+      <form method="post" action="{% url 'clear_batch_history' %}">
+        {% csrf_token %}
+        <ul class="list-history">
+          {% for item in history %}
+            <li>
+              <time datetime="{{ item.created_at|date:'c' }}">
+                {{ item.created_at|date:"Y-m-d H:i" }}
+              </time>
+               — {{ item.prompt|truncatechars:50 }} (×{{ item.count }}, {{ item.get_language_display }}, {{ item.get_file_format_display }})
+            </li>
+          {% endfor %}
+        </ul>
+
+        <button type="submit" class="btn btn-danger btn-sm mb-2">Очистить историю</button>
+      </form>
     {% else %}
       <p>Пакетных запросов ещё не было.</p>
     {% endif %}
@@ -116,8 +117,8 @@ document.getElementById('batch-form').addEventListener('submit', function(e) {
   evtSource.addEventListener('complete', e => {
     const data = JSON.parse(e.data);
     linkDiv.innerHTML = `
-      <a href="${data.download_url}" class="btn btn-large">Скачать файл</a>
-      <a href="{% url 'batch_generate' %}" class="btn btn-large btn-secondary" style="margin-left:10px;">
+      <a href="${data.download_url}" class="btn btn-large" style="text-align: center;">Скачать файл</a>
+      <a href="{% url 'batch_generate' %}" class="btn btn-large btn-secondary" style="text-align: center;">
         Сгенерировать ещё
       </a>
     `;
