@@ -320,8 +320,9 @@ def batch_stream(request):
         }
     ext       = ext_map.get(fmt,'txt')
     filename  = f"{base}_{uid}.{ext}"
+
     batch_dir = settings.MEDIA_ROOT / 'batch'
-    batch_dir.mkdir(exist_ok=True)
+    os.makedirs(batch_dir, exist_ok=True)
     filepath  = batch_dir / filename
 
     def event_stream():
